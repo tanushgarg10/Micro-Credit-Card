@@ -1,0 +1,98 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, log_loss
+from sklearn.model_selection import GridSearchCV
+
+# Load the data
+df = pd.read_csv('Micro-credit-Data-file.csv')
+
+# Split the data into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(df.drop('label', axis=1), df['label'], test_size=0.25, random_state=42)
+df = pd.get_dummies(df, columns=['msisdn'], drop_first=True)
+
+# Define the models
+models = [
+    RandomForestClassifier(),
+    GradientBoostingClassifier(),
+    LogisticRegression(),
+    SVC(),
+    MLPClassifier()
+]
+
+# Hyperparameter tuning
+hyperparameters = {
+    RandomForestClassifier: {
+        'n_estimators': [100, 200, 300],
+        'max_depth': [5, 10, 15]
+    },
+    GradientBoostingClassifier: {
+        'n_estimators': [100, 200, 300],
+        'max_depth': [5, 10, 15],
+        'learning_rate': [0.1, 0.01, 0.001]
+    },
+    LogisticRegression: {
+        'C': [0.1, 1, 10]
+    },
+    SVC: {
+        'C': [0.1, 1, 10],
+        'kernel': ['linear', 'rbf', 'poly']
+    },
+    MLPClassifier: {
+        'hidden_layer_sizes': [(100, 50), (150, 75), (200, 100)],
+        'activation': ['relu', 'tanh', 'leaky_relu']
+    }
+}
+
+# Train and evaluate the models
+results = []
+for model in models:
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+    f1_score = f1_score(y_test, y_pred)
+    log_loss = log_loss(y_test, model.predict_proba(X_test))
+
+    results.append({
+        'model': model.__class__.__name__,
+        'accuracy': accuracy,
+        'precision': precision,
+        'recall': recall,
+        'f1_score': f1_score,
+        'log_loss': log_loss
+    })
+
+# Sort the results by accuracy
+results.sort(key=lambda x: x['accuracy'], reverse=True)
+
+# Print the top 5 results
+print('Top 5 models by accuracy:')
+for result in results[:5]:
+    print(f'{result["model"]} - Accuracy: {result["accuracy"]:.3f}')
+
+# Create a voting classifier
+voting_clf = VotingClassifier(estimators=[(model.__class__.__name__, model) for model in models], voting='hard')
+voting_clf.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = voting_clf.predict(X_test)
+
+# Evaluate the model performance
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1_score = f1_score(y_test, y_pred)
+log_loss = log_loss(y_test, voting_clf.predict_proba(X_test))
+
+# Print the model performance
+print('Voting classifier performance:')
+print(f'Accuracy: {accuracy:.3f}')
+print(f'Precision: {precision:.3f}')
+print(f'Recall: {recall:.3f}')
+print(f'F1 score: {f1_score}')
+print(f'Log loss: {log_loss}')
